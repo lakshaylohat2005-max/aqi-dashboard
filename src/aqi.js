@@ -19,22 +19,48 @@ export const BANDS = [
 export const band = (v) => BANDS.find((b) => v <= b.max)
 export const PALETTE = ['#16202a', '#e03131', '#1c7ed6', '#2f9e44', '#f08c00', '#862e9c']
 
-export async function fetchAqi() {
+export async function fetchPlaces(places) {
   const q = new URLSearchParams({
-    latitude: CITIES.map((c) => c.lat).join(','),
-    longitude: CITIES.map((c) => c.lon).join(','),
+    latitude: places.map((p) => p.lat).join(','),
+    longitude: places.map((p) => p.lon).join(','),
     current: 'us_aqi,pm2_5,pm10,nitrogen_dioxide,ozone,sulphur_dioxide,carbon_monoxide',
-    hourly: 'us_aqi',
+    hourly: 'us_aqi,pm2_5,pm10',
     past_days: 3,
-    forecast_days: 1,
+    forecast_days: 2,
     timezone: 'Asia/Kolkata',
   })
   const res = await fetch('https://air-quality-api.open-meteo.com/v1/air-quality?' + q)
   if (!res.ok) throw new Error('API returned ' + res.status)
   const json = await res.json()
   return (Array.isArray(json) ? json : [json]).map((r, i) => {
-    const idx = r.hourly.time.findIndex((t) => t > r.current.time) // only hours up to now
-    const end = idx === -1 ? r.hourly.time.length : idx
-    return { city: CITIES[i], cur: r.current, times: r.hourly.time.slice(0, end), aqi: r.hourly.us_aqi.slice(0, end) }
+    let k = r.hourly.time.findIndex((t) => t > r.current.time) // first future hour
+    if (k === -1) k = r.hourly.time.length
+    let best = null // cleanest forecast hour in the next 24h
+    for (let j = k; j < Math.min(k + 24, r.hourly.time.length); j++) {
+      const v = r.hourly.us_aqi[j]
+      if (v != null && (!best || v < best.aqi)) best = { time: r.hourly.time[j], aqi: v }
+    }
+    const cut = (a) => a.slice(0, k)
+    return { city: places[i], cur: r.current, times: cut(r.hourly.time), aqi: cut(r.hourly.us_aqi), pm25: cut(r.hourly.pm2_5), pm10: cut(r.hourly.pm10), best }
   })
 }
+export const fetchAqi = () => fetchPlaces(CITIES)
+
+// Open-Meteo geocoding: free, no key
+export async function searchCity(name) {
+  const res = await fetch('https://geocoding-api.open-meteo.com/v1/search?' + new URLSearchParams({ name, count: 5, language: 'en' }))
+  const j = await res.json()
+  return (j.results || []).map((r) => ({ name: r.name + (r.admin1 ? ', ' + r.admin1 : ''), lat: r.latitude, lon: r.longitude }))
+}
+
+// Health guidance: sensitive groups are treated as one or two AQI bands "worse"
+export const GROUPS = [['Everyone', 0], ['Children & elderly', 1], ['Asthma, heart or lung conditions', 2], ['Runners & outdoor workers', 1]]
+const ADVICE = [
+  'Great day to be outside.',
+  'Fine for outdoor plans. Watch for any irritation.',
+  'Shorten long outdoor activity and prefer the cleaner hours.',
+  'Move heavy exercise indoors and wear an N95/FFP2 mask outside.',
+  'Stay indoors where possible and run an air purifier.',
+  'Avoid going out. Keep windows closed and the purifier on.',
+]
+export const advice = (v, shift) => ADVICE[Math.min(BANDS.indexOf(band(v)) + shift, 5)]

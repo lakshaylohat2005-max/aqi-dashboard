@@ -1,5 +1,5 @@
 # Hawa: Air Quality Dashboard
-Live demo: https://aqi-dashboard-wl74.onrender.com
+
 Live AQI for Delhi, Mumbai, Bengaluru, Kolkata, Chennai and Hyderabad with an interactive map and 3-day trend graphs.
 Built to practise **API integration** and **data visualization**.
 
@@ -7,6 +7,9 @@ Built to practise **API integration** and **data visualization**.
 - Live US AQI and pollutants (PM2.5, PM10, NO₂, O₃, SO₂, CO)
 - Leaflet map with colour-coded AQI markers (click a marker or a city card to select)
 - Chart.js trend graph: selected city or compare all cities
+- Search any city in the world (Open-Meteo geocoding), click anywhere on the map, or use your location
+- Chart switches between AQI / PM2.5 / PM10 and 24h / 3 days; health advice per group; cleanest forecast hour
+- Home page with live city strip and a try-it city checker
 - Page colour follows the AQI category; auto-refresh every 10 minutes; error message if the API fails
 
 ## Tech
